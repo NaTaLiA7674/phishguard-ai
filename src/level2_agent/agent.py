@@ -1,12 +1,14 @@
 import os
+import re
 import logging
 from typing import Optional
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.tools import StructuredTool
+from langgraph.prebuilt import create_react_agent
 
 from .models import (
     EmailData,
@@ -18,15 +20,17 @@ from .models import (
     SEVERIDAD_CRITICO,
     SEVERIDAD_ALTO,
 )
-from .prompts import build_chat_prompt
+from .prompts import SYSTEM_PROMPT, HUMAN_TEMPLATE
 from .tools import create_retriever
+from .tools.ip_reputation import ip_reputation_tool
+from .tools.jira_integration import create_jira_ticket
 from .memory import get_chat_history
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 llm: Optional[ChatGoogleGenerativeAI] = None
-analysis_chain = None
+react_agent = None
 
 
 def _ensure_llm():
@@ -42,22 +46,14 @@ def _ensure_llm():
     return llm
 
 
-def _build_analysis_chain():
-    prompt = build_chat_prompt()
-    parser = JsonOutputParser(pydantic_object=PhishingReport)
-    model = _ensure_llm()
-
-    try:
-        retriever = create_retriever()
-    except Exception as e:
-        logger.warning("No se pudo crear el retriever RAG: %s", e)
-        retriever = None
-
-    def _get_context(inputs: dict) -> str:
-        if retriever is None:
+def _create_rag_tool() -> StructuredTool:
+    def _rag_search(query: str) -> str:
+        try:
+            retriever = create_retriever()
+        except Exception as e:
+            logger.warning("No se pudo crear el retriever RAG: %s", e)
             return "No disponible. Procede con tu conocimiento base."
         try:
-            query = f"{inputs.get('subject', '')} {inputs.get('htmlBody', '')[:500]}"
             docs = retriever.invoke(query)
             if not docs:
                 return "No se encontraron documentos relevantes en la base vectorial."
@@ -66,20 +62,71 @@ def _build_analysis_chain():
             logger.warning("Error al recuperar contexto RAG: %s", e)
             return "Error al consultar la base vectorial. Procede con tu conocimiento base."
 
-    chain = (
-        RunnablePassthrough.assign(context=RunnableLambda(_get_context))
-        | prompt
-        | model
-        | parser
+    return StructuredTool.from_function(
+        name="consultar_base_vectorial",
+        description=(
+            "Consulta la base de datos vectorial de ciberseguridad "
+            "(NIST SP 800-53 / OWASP) buscando controles y guías "
+            "relacionados con patrones de phishing. Recibe una consulta "
+            "textual descriptiva y devuelve documentos relevantes."
+        ),
+        func=_rag_search,
     )
-    return chain
 
 
-def _get_chain():
-    global analysis_chain
-    if analysis_chain is None:
-        analysis_chain = _build_analysis_chain()
-    return analysis_chain
+def _build_react_agent():
+    model = _ensure_llm()
+
+    tools = []
+    try:
+        tools.append(_create_rag_tool())
+    except Exception as e:
+        logger.warning("No se pudo crear el RAG tool: %s", e)
+
+    tools.append(ip_reputation_tool)
+
+    agent = create_react_agent(
+        model=model,
+        tools=tools,
+        state_modifier=SYSTEM_PROMPT,
+    )
+    return agent
+
+
+def _get_react_agent():
+    global react_agent
+    if react_agent is None:
+        react_agent = _build_react_agent()
+    return react_agent
+
+
+def _parse_agent_response(ai_content: str) -> PhishingReport:
+    parser = JsonOutputParser(pydantic_object=PhishingReport)
+
+    content = ai_content.strip()
+    if content.startswith("```json"):
+        content = content[7:]
+    elif content.startswith("```"):
+        content = content[3:]
+    if content.endswith("```"):
+        content = content[:-3]
+    content = content.strip()
+
+    try:
+        return parser.invoke(content)
+    except Exception:
+        pass
+
+    json_match = re.search(r"\{.*\}", content, re.DOTALL)
+    if json_match:
+        try:
+            return parser.invoke(json_match.group())
+        except Exception:
+            pass
+
+    raise ValueError(
+        f"No se pudo extraer un JSON válido: {content[:500]}"
+    )
 
 
 def _genetic_score(email_data: EmailData) -> dict:
@@ -144,25 +191,42 @@ def analyze_email(email_data: EmailData) -> PhishingReport:
         logger.info("Score %s > %s → ruta maliciosa", score, SCORE_UMBRAL_ALTO)
         return generate_malicious_report(score, genes)
 
-    logger.info("Score %s entre %s-%s → ruta AI Agent", score, SCORE_UMBRAL_BAJO, SCORE_UMBRAL_ALTO)
+    logger.info("Score %s entre %s-%s → ruta AI Agent (ReAct)", score, SCORE_UMBRAL_BAJO, SCORE_UMBRAL_ALTO)
 
-    chain = _get_chain()
-
+    agent = _get_react_agent()
     chat_history = get_chat_history(email_data.message_id)
 
-    chain_input = {
-        "htmlBody": email_data.htmlBody,
-        "headers": email_data.headers,
-        "subject": email_data.subject,
-        "history": chat_history.messages,
-    }
+    human_content = HUMAN_TEMPLATE.format(
+        subject=email_data.subject,
+        htmlBody=email_data.htmlBody,
+        headers=email_data.headers,
+    )
+
+    messages = list(chat_history.messages)
+    messages.append(HumanMessage(content=human_content))
 
     try:
-        result = chain.invoke(chain_input)
+        result = agent.invoke({"messages": messages})
+
+        final_msg = result["messages"][-1]
+        if not isinstance(final_msg, AIMessage):
+            for msg in reversed(result["messages"]):
+                if isinstance(msg, AIMessage):
+                    final_msg = msg
+                    break
+
+        report = _parse_agent_response(final_msg.content)
+
         chat_history.add_user_message(
             HumanMessage(content=f"Analizar correo: {email_data.subject}")
         )
-        return result
+        chat_history.add_ai_message(final_msg.content)
+
+        if report.es_phishing:
+            jira_result = create_jira_ticket(report)
+            logger.info("Resultado ticket Jira: %s", jira_result)
+
+        return report
     except Exception as e:
-        logger.error("Error en AI Agent chain: %s", e)
+        logger.error("Error en ReAct Agent: %s", e)
         raise

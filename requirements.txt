@@ -14,3 +14,7 @@ pandas
 pymongo
 python-dotenv
 pydantic
+requests
+
+# Agente ReAct
+langgraph>=0.1.0

@@ -2,7 +2,7 @@ import os
 import logging
 from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from .models import VECTOR_COLLECTION, VECTOR_INDEX, TOP_K_RAG
+from ..models import VECTOR_COLLECTION, VECTOR_INDEX, TOP_K_RAG
 
 logger = logging.getLogger(__name__)
 
