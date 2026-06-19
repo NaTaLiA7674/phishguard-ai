@@ -1,0 +1,16 @@
+# IA y Agentes
+langchain>=0.2.0
+langchain-google-genai
+langchain-mongodb
+langchain-core
+langchain-community
+
+# Algoritmos y Matemáticas
+numpy
+matplotlib
+pandas
+
+# Utilidades
+pymongo
+python-dotenv
+pydantic
