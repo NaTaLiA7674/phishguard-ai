@@ -1,0 +1,15 @@
+{
+  "_test": {
+    "name": "ai_agent",
+    "description": "Professional internal email, same domain, no suspicious features. Score = 50 (zero genes) -> AI Agent route (30-75).",
+    "expected_route": "ai_agent_safe",
+    "expected_score_min": 30,
+    "expected_score_max": 75
+  },
+  "subject": "Meeting reminder for tomorrow",
+  "recipient": "user@ucaldas.edu.co",
+  "headers": "{\"from\": \"John Doe <john@ucaldas.edu.co>\", \"date\": \"Thu, 19 Jun 2026 10:30:00 +0200\"}",
+  "textBody": "I hope this message finds you well. I wanted to remind you about our meeting scheduled for tomorrow at 10 AM. We will be discussing the quarterly results and planning the next steps for our team. Please bring the documentation from last month. Let me know if you have any questions. Looking forward to our discussion.",
+  "htmlBody": "<html><body><p>I hope this message finds you well. I wanted to remind you about our meeting scheduled for tomorrow at 10 AM. We will be discussing the quarterly results and planning the next steps for our team. Please bring the documentation from last month. Let me know if you have any questions. Looking forward to our discussion.</p></body></html>",
+  "message_id": "test-aiagent-001"
+}

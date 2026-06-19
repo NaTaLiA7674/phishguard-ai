@@ -1,0 +1,15 @@
+{
+  "_test": {
+    "name": "benign",
+    "description": "Email from free domain, short subject, has phone number. Score ~21 -> benign route (score < 30).",
+    "expected_route": "benign",
+    "expected_score_max": 30,
+    "genes_esperados": ["dominio_gratuito", "asunto_corto", "telefono_detectado"]
+  },
+  "subject": "Hi",
+  "recipient": "someuser@gmail.com",
+  "headers": "{\"from\": \"someuser@gmail.com\", \"date\": \"Thu, 19 Jun 2026 10:30:00 +0200\"}",
+  "textBody": "I hope this message finds you well. I wanted to follow up on our previous conversation regarding the project timeline. We have made significant progress on the initial phase and would like to schedule a meeting to discuss the next steps. Please let me know your availability for next week. You can reach me directly at +1-555-123-4567 if you have any questions. Looking forward to hearing from you soon.",
+  "htmlBody": "<html><body><p>I hope this message finds you well. I wanted to follow up on our previous conversation regarding the project timeline. We have made significant progress on the initial phase and would like to schedule a meeting to discuss the next steps. Please let me know your availability for next week. You can reach me directly at +1-555-123-4567 if you have any questions. Looking forward to hearing from you soon.</p></body></html>",
+  "message_id": "test-benign-001"
+}

@@ -1,0 +1,20 @@
+{
+  "_test": {
+    "name": "malicious",
+    "description": "Phishing email from external domain, verification subject, short body with http URL containing login keyword. Score ~94 -> malicious route (score > 75).",
+    "expected_route": "malicious",
+    "expected_score_min": 75,
+    "genes_esperados": [
+      "dominio_externo", "asunto_verificacion", "solicita_credenciales",
+      "cuerpo_corto", "solo_enlace_sin_texto", "envio_madrugada",
+      "mismatch_dominio_url", "protocolo_http_inseguro",
+      "palabras_clave_url"
+    ]
+  },
+  "subject": "Verify access",
+  "recipient": "victim@gmail.com",
+  "headers": "{\"from\": \"attacker@evil.com\", \"date\": \"Mon, 01 Jan 2026 03:00:00 +0000\"}",
+  "textBody": "Click here: http://phish.com/login",
+  "htmlBody": "<html><body><a href=\"http://phish.com/login\">Click here</a>: http://phish.com/login</body></html>",
+  "message_id": "test-malicious-001"
+}

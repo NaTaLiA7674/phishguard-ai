@@ -20,7 +20,7 @@ from .models import (
     SEVERIDAD_CRITICO,
     SEVERIDAD_ALTO,
 )
-from .prompts import SYSTEM_PROMPT, HUMAN_TEMPLATE
+from .prompts import _build_system_prompt, HUMAN_TEMPLATE
 from .tools import create_retriever
 from .tools.ip_reputation import ip_reputation_tool
 from .tools.jira_integration import create_jira_ticket
@@ -83,12 +83,13 @@ def _build_react_agent():
     except Exception as e:
         logger.warning("No se pudo crear el RAG tool: %s", e)
 
-    tools.append(ip_reputation_tool)
+    if os.getenv("VT_API_KEY"):
+        tools.append(ip_reputation_tool)
 
     agent = create_react_agent(
         model=model,
         tools=tools,
-        state_modifier=SYSTEM_PROMPT,
+        prompt=_build_system_prompt(),
     )
     return agent
 
@@ -113,14 +114,20 @@ def _parse_agent_response(ai_content: str) -> PhishingReport:
     content = content.strip()
 
     try:
-        return parser.invoke(content)
+        data = parser.invoke(content)
+        if isinstance(data, dict):
+            return PhishingReport(**data)
+        return data
     except Exception:
         pass
 
     json_match = re.search(r"\{.*\}", content, re.DOTALL)
     if json_match:
         try:
-            return parser.invoke(json_match.group())
+            data = parser.invoke(json_match.group())
+            if isinstance(data, dict):
+                return PhishingReport(**data)
+            return data
         except Exception:
             pass
 
@@ -202,8 +209,7 @@ def analyze_email(email_data: EmailData) -> PhishingReport:
         headers=email_data.headers,
     )
 
-    messages = list(chat_history.messages)
-    messages.append(HumanMessage(content=human_content))
+    messages = [HumanMessage(content=human_content)]
 
     try:
         result = agent.invoke({"messages": messages})
@@ -215,6 +221,7 @@ def analyze_email(email_data: EmailData) -> PhishingReport:
                     final_msg = msg
                     break
 
+        logger.debug("Agent final_msg type=%s content=%s", type(final_msg).__name__, final_msg.content[:500] if final_msg.content else "(empty)")
         report = _parse_agent_response(final_msg.content)
 
         chat_history.add_user_message(

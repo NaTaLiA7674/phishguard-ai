@@ -32,5 +32,6 @@ SEVERIDAD_CRITICO = "Crítico"
 TOP_K_RAG = 5
 MEMORY_DATABASE = "memory-agent"
 MEMORY_COLLECTION = "memory"
-VECTOR_COLLECTION = "docs_phishing"
+VECTOR_DATABASE = "phishguard"
+VECTOR_COLLECTION = f"{VECTOR_DATABASE}.docs_phishing"
 VECTOR_INDEX = "vector_index"

@@ -12,7 +12,7 @@ def create_retriever():
     if not uri:
         raise ValueError("MONGODB_ATLAS_CLUSTER_URI no está configurada")
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 
     vector_store = MongoDBAtlasVectorSearch.from_connection_string(
         connection_string=uri,
