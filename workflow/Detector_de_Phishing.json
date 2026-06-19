@@ -129,7 +129,7 @@
         },
         "summary": "=Correo de Phishing Potencialmente Malicioso Reportado: '{{ $('Set Gmail Variables').item.json.subject.substring(0, 190) }}",
         "additionalFields": {
-          "description": "=Se reportó un correo de phishing por parte de {{ $('Set Gmail Variables').item.json.recipient }} con el asunto '{{ $('Set Gmail Variables').item.json.subject }}'\n\\\nAnalisis de la Inteligencia Artificial:\nh2. Resumen del Correo:\n{{ $('Check if Malicious').item.json.resumen }}\n\nh2. Análisis Técnico de Cabeceras:\n{{ $('Check if Malicious').item.json.analisis_tecnico }}\nh2. Justificación del Veredicto:\n{{ $('Check if Malicious').item.json.justificacion_veredicto }}\n"
+          "description": "=Se reportó un correo de phishing por parte de {{ $('Set Gmail Variables').item.json.recipient }} con el asunto '{{ $('Set Gmail Variables').item.json.subject }}'\n\\\nAnalisis de la Inteligencia Artificial:\nh2. Resumen del Correo:\n{{ $('Check if Malicious').item.json.output.resumen }}\n\nh2. Análisis Técnico de Cabeceras:\n{{ $('Check if Malicious').item.json.output.analisis_tecnico }}\nh2. Justificación del Veredicto:\n{{ $('Check if Malicious').item.json.output.justificacion_veredicto }}\n"
         }
       },
       "id": "ef730a7e-3236-4d46-9ee3-581f954a5268",
@@ -1408,7 +1408,7 @@
     "errorWorkflow": "KqLUGD8rv358cJCM",
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "fbb5dded-f48d-42cb-9523-c44be719cb80",
+  "versionId": "d7088c99-188b-49d4-b40d-c6408c12f336",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "842fc0fb67f7ed15a67489961529468298879519d496bc7c551b09b377814c6b"

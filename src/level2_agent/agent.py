@@ -138,7 +138,7 @@ def _parse_agent_response(ai_content: str) -> PhishingReport:
 
 def _genetic_score(email_data: EmailData) -> dict:
     try:
-        from level3_logic.genetic_logic import evaluate as genetic_evaluate
+        from src.level3_logic.genetic_logic import evaluate as genetic_evaluate
         data = {
             "htmlBody": email_data.htmlBody,
             "textBody": email_data.textBody,
@@ -192,48 +192,50 @@ def analyze_email(email_data: EmailData) -> PhishingReport:
 
     if score < SCORE_UMBRAL_BAJO:
         logger.info("Score %s < %s → ruta benigna", score, SCORE_UMBRAL_BAJO)
-        return generate_benign_report(score)
+        report = generate_benign_report(score)
 
-    if score > SCORE_UMBRAL_ALTO:
+    elif score > SCORE_UMBRAL_ALTO:
         logger.info("Score %s > %s → ruta maliciosa", score, SCORE_UMBRAL_ALTO)
-        return generate_malicious_report(score, genes)
+        report = generate_malicious_report(score, genes)
 
-    logger.info("Score %s entre %s-%s → ruta AI Agent (ReAct)", score, SCORE_UMBRAL_BAJO, SCORE_UMBRAL_ALTO)
+    else:
+        logger.info("Score %s entre %s-%s → ruta AI Agent (ReAct)", score, SCORE_UMBRAL_BAJO, SCORE_UMBRAL_ALTO)
 
-    agent = _get_react_agent()
-    chat_history = get_chat_history(email_data.message_id)
+        agent = _get_react_agent()
+        chat_history = get_chat_history(email_data.message_id)
 
-    human_content = HUMAN_TEMPLATE.format(
-        subject=email_data.subject,
-        htmlBody=email_data.htmlBody,
-        headers=email_data.headers,
-    )
-
-    messages = [HumanMessage(content=human_content)]
-
-    try:
-        result = agent.invoke({"messages": messages})
-
-        final_msg = result["messages"][-1]
-        if not isinstance(final_msg, AIMessage):
-            for msg in reversed(result["messages"]):
-                if isinstance(msg, AIMessage):
-                    final_msg = msg
-                    break
-
-        logger.debug("Agent final_msg type=%s content=%s", type(final_msg).__name__, final_msg.content[:500] if final_msg.content else "(empty)")
-        report = _parse_agent_response(final_msg.content)
-
-        chat_history.add_user_message(
-            HumanMessage(content=f"Analizar correo: {email_data.subject}")
+        human_content = HUMAN_TEMPLATE.format(
+            subject=email_data.subject,
+            htmlBody=email_data.htmlBody,
+            headers=email_data.headers,
         )
-        chat_history.add_ai_message(final_msg.content)
 
-        if report.es_phishing:
-            jira_result = create_jira_ticket(report)
-            logger.info("Resultado ticket Jira: %s", jira_result)
+        messages = [HumanMessage(content=human_content)]
 
-        return report
-    except Exception as e:
-        logger.error("Error en ReAct Agent: %s", e)
-        raise
+        try:
+            result = agent.invoke({"messages": messages})
+
+            final_msg = result["messages"][-1]
+            if not isinstance(final_msg, AIMessage):
+                for msg in reversed(result["messages"]):
+                    if isinstance(msg, AIMessage):
+                        final_msg = msg
+                        break
+
+            logger.debug("Agent final_msg type=%s content=%s", type(final_msg).__name__, final_msg.content[:500] if final_msg.content else "(empty)")
+            report = _parse_agent_response(final_msg.content)
+
+            chat_history.add_user_message(
+                HumanMessage(content=f"Analizar correo: {email_data.subject}")
+            )
+            chat_history.add_ai_message(final_msg.content)
+
+        except Exception as e:
+            logger.error("Error en ReAct Agent: %s", e)
+            raise
+
+    if report.es_phishing:
+        jira_result = create_jira_ticket(report)
+        logger.info("Resultado ticket Jira: %s", jira_result)
+
+    return report

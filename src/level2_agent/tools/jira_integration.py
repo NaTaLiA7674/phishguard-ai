@@ -45,7 +45,7 @@ h2. Justificación del Veredicto
 
     payload = {
         "fields": {
-            "project": {"key": "SEC"},
+            "project": {"key": "SCRUM"},
             "issuetype": {"name": "Task"},
             "summary": summary[:190],
             "description": description,

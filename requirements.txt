@@ -18,3 +18,8 @@ requests
 
 # Agente ReAct
 langgraph>=0.1.0
+
+# Gmail API
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
